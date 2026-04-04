@@ -86,6 +86,7 @@ bool impl3dsLoadROM(char *romFilePath);
 // console
 //---------------------------------------------------------
 void impl3dsResetConsole();
+void S9xRedrawScreenStereo(bool sub, float eyeOffset);
 
 
 //---------------------------------------------------------

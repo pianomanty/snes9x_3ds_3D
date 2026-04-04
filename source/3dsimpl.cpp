@@ -127,6 +127,7 @@ bool impl3dsInitializeCore()
 	gpu3dsInitializeShaderRegistersForRenderTarget(0, 10);
 	gpu3dsInitializeShaderRegistersForTexture(4, 14);
 	gpu3dsInitializeShaderRegistersForTextureOffset(6);
+	gpu3dsInitializeShaderRegistersForSlider3D(7);
 
     // Create all the necessary textures
     //
@@ -532,62 +533,91 @@ void impl3dsRunOneFrame(bool firstFrame, bool skipDrawingFrame)
 	// buffer
 	// (Can this be done in the V_BLANK?)
 	t3dsStartTiming(3, "CopyFB");
-	gpu3dsSetRenderTargetToFrameBuffer(screenSettings.GameScreen);
-	if (firstFrame)
-	{
-		// Clear the entire frame buffer to black, including the borders
-		//
-		gpu3dsDisableAlphaBlending();
-		gpu3dsSetTextureEnvironmentReplaceColor();
-		gpu3dsDrawRectangle(0, 0, screenSettings.GameScreenWidth, SCREEN_HEIGHT, 0, 0x000000ff);
-		gpu3dsEnableAlphaBlending();
-	}
 
-	gpu3dsUseShader(0);             // for copying to screen.
-	gpu3dsDisableAlphaBlending();
-	gpu3dsDisableDepthTest();
-	gpu3dsDisableAlphaTest();
-	
-	if(settings3DS.GameBorder > 0 && borderTexture)
+	if (screenSettings.GameScreen == GFX_TOP && GPU3DS.slider3D > 0.001f)
 	{
-		// Copy the border texture  to the 3DS frame
-		gpu3dsBindTexture(borderTexture, GPU_TEXUNIT0);
+		// Stereoscopic 3D rendering
+		//
+		gpu3dsUseShader(1);
+
+		// Render Left Eye
+		gpu3dsSetRenderTargetToFrameBuffer(GFX_TOP);
+		gpu3dsSetSlider3DUniform(-1.0f);
+		S9xRedrawScreenStereo(true, -1.0f);		// Subscreen
+		S9xRedrawScreenStereo(false, -1.0f);	// Main screen
+		gpu3dsTransferToScreenBuffer(GFX_TOP);
+
+		// Render Right Eye
+		gfxSetScreenLeft(GFX_TOP, false);		// Set to right eye buffer
+		gpu3dsSetRenderTargetToFrameBuffer(GFX_TOP);
+		gpu3dsSetSlider3DUniform(1.0f);
+		S9xRedrawScreenStereo(true, 1.0f);		// Subscreen
+		S9xRedrawScreenStereo(false, 1.0f);		// Main screen
+		gpu3dsTransferToScreenBuffer(GFX_TOP);
+		gfxSetScreenLeft(GFX_TOP, true);		// Reset to left eye buffer
+	}
+	else
+	{
+		// Standard 2D rendering
+		//
+		gpu3dsSetRenderTargetToFrameBuffer(screenSettings.GameScreen);
+		if (firstFrame)
+		{
+			// Clear the entire frame buffer to black, including the borders
+			//
+			gpu3dsDisableAlphaBlending();
+			gpu3dsSetTextureEnvironmentReplaceColor();
+			gpu3dsDrawRectangle(0, 0, screenSettings.GameScreenWidth, SCREEN_HEIGHT, 0, 0x000000ff);
+			gpu3dsEnableAlphaBlending();
+		}
+
+		gpu3dsUseShader(0);             // for copying to screen.
+		gpu3dsDisableAlphaBlending();
+		gpu3dsDisableDepthTest();
+		gpu3dsDisableAlphaTest();
+		
+		if(settings3DS.GameBorder > 0 && borderTexture)
+		{
+			// Copy the border texture  to the 3DS frame
+			gpu3dsBindTexture(borderTexture, GPU_TEXUNIT0);
+			gpu3dsSetTextureEnvironmentReplaceTexture0();
+			gpu3dsDisableStencilTest();
+			
+			int bx0 = (screenSettings.GameScreenWidth - SCREEN_TOP_WIDTH) / 2;
+			int bx1 = bx0 + SCREEN_TOP_WIDTH;
+			gpu3dsAddQuadVertexes(bx0, 0, bx1, SCREEN_HEIGHT, 0, 0, SCREEN_TOP_WIDTH, SCREEN_HEIGHT, 0.1f);
+		
+			gpu3dsDrawVertexes();
+		}
+		
+		gpu3dsBindTextureMainScreen(GPU_TEXUNIT0);
 		gpu3dsSetTextureEnvironmentReplaceTexture0();
 		gpu3dsDisableStencilTest();
-		
-		int bx0 = (screenSettings.GameScreenWidth - SCREEN_TOP_WIDTH) / 2;
-		int bx1 = bx0 + SCREEN_TOP_WIDTH;
-		gpu3dsAddQuadVertexes(bx0, 0, bx1, SCREEN_HEIGHT, 0, 0, SCREEN_TOP_WIDTH, SCREEN_HEIGHT, 0.1f);
-	
+
+		// PPU.ScreenHeight - 1 seems necessary for pixel perfect image. 224px height causes blurryness otherwise
+		int sHeight = (settings3DS.StretchHeight == -1 ? PPU.ScreenHeight - 1 : settings3DS.StretchHeight);
+		int sWidth = settings3DS.StretchWidth;
+
+		// Make sure "8:7 Fit" won't increase sWidth when current PPU.ScreenHeight = SNES_HEIGHT_EXTENDED
+		if (sWidth == 01010000)
+		{
+			sWidth = PPU.ScreenHeight < SNES_HEIGHT_EXTENDED ? SNES_HEIGHT_EXTENDED * SNES_WIDTH / SNES_HEIGHT : SNES_WIDTH;
+			sHeight = SNES_HEIGHT_EXTENDED;
+		}
+
+		int sx0 = (screenSettings.GameScreenWidth - sWidth) / 2;
+		int sx1 = sx0 + sWidth;
+		int sy0 = (SCREEN_HEIGHT - sHeight) / 2;
+		int sy1 = sy0 + sHeight;
+
+		gpu3dsAddQuadVertexes(
+			sx0, sy0, sx1, sy1,
+			settings3DS.CropPixels, settings3DS.CropPixels ? settings3DS.CropPixels : 1, 
+			256 - settings3DS.CropPixels, PPU.ScreenHeight - settings3DS.CropPixels, 
+			0.1f);
 		gpu3dsDrawVertexes();
+		gpu3dsTransferToScreenBuffer(screenSettings.GameScreen);
 	}
-	
-	gpu3dsBindTextureMainScreen(GPU_TEXUNIT0);
-	gpu3dsSetTextureEnvironmentReplaceTexture0();
-	gpu3dsDisableStencilTest();
-
-	// PPU.ScreenHeight - 1 seems necessary for pixel perfect image. 224px height causes blurryness otherwise
-    int sHeight = (settings3DS.StretchHeight == -1 ? PPU.ScreenHeight - 1 : settings3DS.StretchHeight);
-    int sWidth = settings3DS.StretchWidth;
-
-	// Make sure "8:7 Fit" won't increase sWidth when current PPU.ScreenHeight = SNES_HEIGHT_EXTENDED
-	if (sWidth == 01010000)
-	{
-		sWidth = PPU.ScreenHeight < SNES_HEIGHT_EXTENDED ? SNES_HEIGHT_EXTENDED * SNES_WIDTH / SNES_HEIGHT : SNES_WIDTH;
-		sHeight = SNES_HEIGHT_EXTENDED;
-	}
-
-	int sx0 = (screenSettings.GameScreenWidth - sWidth) / 2;
-	int sx1 = sx0 + sWidth;
-	int sy0 = (SCREEN_HEIGHT - sHeight) / 2;
-	int sy1 = sy0 + sHeight;
-
-	gpu3dsAddQuadVertexes(
-		sx0, sy0, sx1, sy1,
-		settings3DS.CropPixels, settings3DS.CropPixels ? settings3DS.CropPixels : 1, 
-		256 - settings3DS.CropPixels, PPU.ScreenHeight - settings3DS.CropPixels, 
-		0.1f);
-	gpu3dsDrawVertexes();
 
 	t3dsEndTiming(3);
 
@@ -599,7 +629,7 @@ void impl3dsRunOneFrame(bool firstFrame, bool skipDrawingFrame)
 		// to complete
 		//
 		t3dsStartTiming(5, "Transfer");
-		gpu3dsTransferToScreenBuffer(screenSettings.GameScreen);
+		//gpu3dsTransferToScreenBuffer(screenSettings.GameScreen); // Moved into if/else
 		gpu3dsSwapScreenBuffers();
 		t3dsEndTiming(5);
 

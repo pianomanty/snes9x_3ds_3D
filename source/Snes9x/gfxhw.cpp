@@ -79,6 +79,38 @@ extern uint8  Mode7Depths [2];
 #define ALPHA_1_0 					0x4000 
 
 bool layerDrawn[10];
+bool layerActiveMain[10];
+bool layerActiveSub[10];
+
+
+//---------------------------------------------------------------------------
+// Redraws the SNES layers for stereoscopic 3D.
+//---------------------------------------------------------------------------
+void S9xRedrawScreenStereo (bool sub, float eyeOffset)
+{
+	gpu3dsSetSlider3DUniform(eyeOffset);
+	gpu3dsBindTextureSnesTileCache(GPU_TEXUNIT0);
+	gpu3dsSetTextureEnvironmentReplaceTexture0WithColorAlpha();
+	gpu3dsEnableAlphaTestNotEqualsZero();
+	gpu3dsEnableDepthTest();
+	
+	bool *layerActive = sub ? layerActiveSub : layerActiveMain;
+	
+	// Draw background layers 0-3
+	for (int bg = 0; bg < 4; bg++)
+	{
+		if (layerActive[bg])
+		{
+			gpu3dsDrawVertexes(true, bg);
+		}
+	}
+	
+	// Draw OBJ layer (index 5)
+	if (layerActive[5])
+	{
+		gpu3dsDrawVertexes(true, 5);
+	}
+}
 
 
 //-------------------------------------------------------------------
@@ -3421,6 +3453,8 @@ void S9xRenderScreenHardware (bool8 sub, bool8 force_no_add, uint8 D)
     bool8 BG3;
     bool8 OB;
 
+    bool *layerActive = sub ? layerActiveSub : layerActiveMain;
+
 	int BGAlpha0 = ALPHA_ZERO; 
 	int BGAlpha1 = ALPHA_ZERO;
 	int BGAlpha2 = ALPHA_ZERO;
@@ -3519,6 +3553,7 @@ void S9xRenderScreenHardware (bool8 sub, bool8 force_no_add, uint8 D)
 	#define DRAW_OBJS(p)  \
 		if (OB) \
 		{ \
+			layerActive[5] = true; \
 			t3dsStartTiming(26, "DrawOBJS"); \
 			S9xDrawOBJSHardware (sub, OBAlpha, p); \
 			t3dsEndTiming(26); \
@@ -3528,6 +3563,7 @@ void S9xRenderScreenHardware (bool8 sub, bool8 force_no_add, uint8 D)
 	#define DRAW_4COLOR_BG_INLINE(bg, p, d0, d1) \
 		if (BG##bg) \
 		{ \
+			layerActive[bg] = true; \
 			if (bg == 0) { t3dsStartTiming(21, "DrawBG0"); } \
 			if (bg == 1) { t3dsStartTiming(22, "DrawBG1"); } \
 			if (bg == 2) { t3dsStartTiming(23, "DrawBG2"); } \
@@ -3539,6 +3575,7 @@ void S9xRenderScreenHardware (bool8 sub, bool8 force_no_add, uint8 D)
 	#define DRAW_16COLOR_BG_INLINE(bg, p, d0, d1) \
 		if (BG##bg) \
 		{ \
+			layerActive[bg] = true; \
 			if (bg == 0) { t3dsStartTiming(21, "DrawBG0"); } \
 			if (bg == 1) { t3dsStartTiming(22, "DrawBG1"); } \
 			if (bg == 2) { t3dsStartTiming(23, "DrawBG2"); } \
@@ -3550,6 +3587,7 @@ void S9xRenderScreenHardware (bool8 sub, bool8 force_no_add, uint8 D)
 	#define DRAW_256COLOR_BG_INLINE(bg, p, d0, d1) \
 		if (BG##bg) \
 		{ \
+			layerActive[bg] = true; \
 			if (bg == 0) { t3dsStartTiming(21, "DrawBG0"); } \
 			if (bg == 1) { t3dsStartTiming(22, "DrawBG1"); } \
 			if (bg == 2) { t3dsStartTiming(23, "DrawBG2"); } \
@@ -3561,6 +3599,7 @@ void S9xRenderScreenHardware (bool8 sub, bool8 force_no_add, uint8 D)
 	#define DRAW_4COLOR_OFFSET_BG_INLINE(bg, p, d0, d1) \
 		if (BG##bg) \
 		{ \
+			layerActive[bg] = true; \
 			if (bg == 0) { t3dsStartTiming(21, "DrawBG0"); } \
 			if (bg == 1) { t3dsStartTiming(22, "DrawBG1"); } \
 			if (bg == 2) { t3dsStartTiming(23, "DrawBG2"); } \
@@ -3572,6 +3611,7 @@ void S9xRenderScreenHardware (bool8 sub, bool8 force_no_add, uint8 D)
 	#define DRAW_16COLOR_OFFSET_BG_INLINE(bg, p, d0, d1) \
 		if (BG##bg) \
 		{ \
+			layerActive[bg] = true; \
 			if (bg == 0) { t3dsStartTiming(21, "DrawBG0"); } \
 			if (bg == 1) { t3dsStartTiming(22, "DrawBG1"); } \
 			if (bg == 2) { t3dsStartTiming(23, "DrawBG2"); } \
@@ -3583,6 +3623,7 @@ void S9xRenderScreenHardware (bool8 sub, bool8 force_no_add, uint8 D)
 	#define DRAW_256COLOR_OFFSET_BG_INLINE(bg, p, d0, d1) \
 		if (BG##bg) \
 		{ \
+			layerActive[bg] = true; \
 			if (bg == 0) { t3dsStartTiming(21, "DrawBG0"); } \
 			if (bg == 1) { t3dsStartTiming(22, "DrawBG1"); } \
 			if (bg == 2) { t3dsStartTiming(23, "DrawBG2"); } \
@@ -3594,6 +3635,7 @@ void S9xRenderScreenHardware (bool8 sub, bool8 force_no_add, uint8 D)
 	#define DRAW_4COLOR_HIRES_BG_INLINE(bg, p, d0, d1) \
 		if (BG##bg) \
 		{ \
+			layerActive[bg] = true; \
 			if (bg == 0) { t3dsStartTiming(21, "DrawBG0"); } \
 			if (bg == 1) { t3dsStartTiming(22, "DrawBG1"); } \
 			if (bg == 2) { t3dsStartTiming(23, "DrawBG2"); } \
@@ -3606,6 +3648,7 @@ void S9xRenderScreenHardware (bool8 sub, bool8 force_no_add, uint8 D)
 	#define DRAW_16COLOR_HIRES_BG_INLINE(bg, p, d0, d1) \
 		if (BG##bg) \
 		{ \
+			layerActive[bg] = true; \
 			if (bg == 0) { t3dsStartTiming(21, "DrawBG0"); } \
 			if (bg == 1) { t3dsStartTiming(22, "DrawBG1"); } \
 			if (bg == 2) { t3dsStartTiming(23, "DrawBG2"); } \
@@ -4136,6 +4179,12 @@ void S9xUpdateScreenHardware ()
 	layerDrawn[4] = false;
 	layerDrawn[5] = false;
 	layerDrawn[6] = false;
+
+	for (int i = 0; i < 10; i++)
+	{
+		layerActiveMain[i] = false;
+		layerActiveSub[i] = false;
+	}
 
 	// Bug fix: We have to render as long as 
 	// the 2130 register says that we have are

@@ -24,7 +24,7 @@
 .fvec 		textureScale		; #4
 .fvec		updateFrame			; #5
 .fvec		textureOffset		; #6 - Use this for Hi-res flipping
-.fvec		uPadding6			; #7
+.fvec		u3dOffset			; #7 - Use this for Stereoscopic 3D
 .fvec		uPadding7			; #8
 .fvec		uPadding8			; #9
 
@@ -127,6 +127,11 @@ alpha_lt_0_5:
 r0_y_lt_zero:
 	mov 	r1, ONE
 	mov 	r0.w, r1.w				; set r0.w = 1
+
+	; Apply parallax shift based on depth (r0.z) and 3D offset (u3dOffset.w)
+	; x = x + (depth * 3dOffset)
+	mul		r5.x, r0.z, u3dOffset.w
+	add		r0.x, r0.x, r5.x
 
 	; outpos = projection * in.pos
 	dp4 	outpos.x, projection[0].wzyx, r0

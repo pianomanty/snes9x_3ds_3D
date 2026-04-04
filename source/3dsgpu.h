@@ -71,6 +71,7 @@ typedef struct
     float               projectionTopScreen[16];
     float               projectionBottomScreen[16];
     float               textureOffset[4];
+    float               slider3DUniform[4];
 
     SStoredVertexList   vertexesStored[4][10];
 
@@ -93,6 +94,8 @@ typedef struct
     bool                isNew3DS  = false;
     bool                enableDebug = false;
     int                 emulatorState = 0;
+
+    float               slider3D = 0;
 
 } SGPU3DS;
 
@@ -129,6 +132,7 @@ void gpu3dsResetState();
 void gpu3dsInitializeShaderRegistersForRenderTarget(int vertexShaderRegister, int geometryShaderRegister);
 void gpu3dsInitializeShaderRegistersForTexture(int vertexShaderRegister, int geometryShaderRegister);
 void gpu3dsInitializeShaderRegistersForTextureOffset(int vertexShaderRegister);
+void gpu3dsInitializeShaderRegistersForSlider3D(int vertexShaderRegister);
 
 void gpu3dsLoadShader(int shaderIndex, u32 *shaderBinary, int size, int geometryShaderStride);
 void gpu3dsUseShader(int shaderIndex);
@@ -181,6 +185,7 @@ void gpu3dsDisableAlphaBlending();
 void gpu3dsDisableAlphaBlendingKeepDestAlpha();
 
 void gpu3dsSetTextureOffset(float u, float v);
+void gpu3dsSetSlider3DUniform(float offset);
 
 void gpu3dsDrawVertexList(SVertexList *list, GPU_Primitive_t type, bool repeatLastDraw, int storeVertexListIndex, int storeIndex);
 void gpu3dsDrawVertexList(SVertexList *list, GPU_Primitive_t type, int fromIndex, int tileCount);

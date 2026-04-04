@@ -85,6 +85,7 @@ int renderTargetGeometryShaderRegister = 0;
 int textureVertexShaderRegister = 0;
 int textureGeometryShaderRegister = 0;
 int textureOffsetVertexShaderRegister = 0;
+int slider3DVertexShaderRegister = 0;
 
 u32 vertexListBufferOffsets[1] = { 0 };
 u64 vertexListAttribPermutations[1] = { 0x3210 };
@@ -152,10 +153,11 @@ float prevSliderVal = -1;
 void gpu3dsCheckSlider()
 {
     float sliderVal = *(float*)0x1FF81080;
+    GPU3DS.slider3D = sliderVal;
 
     if (sliderVal != prevSliderVal)
     {
-        if (sliderVal < 0.6)
+        if (sliderVal < 0.1)
         {
             gpu3dsSetParallaxBarrier(false);
         }
@@ -440,7 +442,7 @@ bool gpu3dsInitialize()
     //
     GPU3DS.screenFormat = GSP_RGBA8_OES;
     gfxInit(GPU3DS.screenFormat, GPU3DS.screenFormat, false);
-	gfxSet3D(false);
+	gfxSet3D(true);
     APT_CheckNew3DS(&GPU3DS.isNew3DS);
 
     // Create the frame and depth buffers for the main screen.
@@ -500,6 +502,11 @@ bool gpu3dsInitialize()
     // Initialize texture offsets for hi-res
     //
     gpu3dsSetTextureOffset(0, 0);
+    GPU3DS.slider3DUniform[0] = 0;
+    GPU3DS.slider3DUniform[1] = 0;
+    GPU3DS.slider3DUniform[2] = 0;
+    GPU3DS.slider3DUniform[3] = 0;
+    gpu3dsSetSlider3DUniform(0);
 
 #ifndef RELEASE
     printf ("gpu3dsInitialize - Allocate buffers\n");
@@ -756,6 +763,7 @@ void gpu3dsUseShader(int shaderIndex)
         }
 
         GPU_SetFloatUniform(GPU_VERTEX_SHADER, textureOffsetVertexShaderRegister, (u32 *)GPU3DS.textureOffset, 1);
+        GPU_SetFloatUniform(GPU_VERTEX_SHADER, slider3DVertexShaderRegister, (u32 *)GPU3DS.slider3DUniform, 1);
 
     }
 }
@@ -778,6 +786,19 @@ void gpu3dsInitializeShaderRegistersForTexture(int vertexShaderRegister, int geo
 void gpu3dsInitializeShaderRegistersForTextureOffset(int vertexShaderRegister)
 {
     textureOffsetVertexShaderRegister = vertexShaderRegister;
+}
+
+
+void gpu3dsInitializeShaderRegistersForSlider3D(int vertexShaderRegister)
+{
+    slider3DVertexShaderRegister = vertexShaderRegister;
+}
+
+
+void gpu3dsSetSlider3DUniform(float offset)
+{
+    GPU3DS.slider3DUniform[3] = offset * GPU3DS.slider3D;
+    GPU_SetFloatUniform(GPU_VERTEX_SHADER, slider3DVertexShaderRegister, (u32 *)GPU3DS.slider3DUniform, 1);
 }
 
 
